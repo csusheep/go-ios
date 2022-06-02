@@ -3,12 +3,13 @@ package imagemounter
 import (
 	"errors"
 	"fmt"
-	"github.com/Masterminds/semver"
-	"github.com/danielpaulus/go-ios/ios"
-	log "github.com/sirupsen/logrus"
 	"io"
 	"os"
 	"strings"
+
+	"github.com/Masterminds/semver"
+	"github.com/danielpaulus/go-ios/ios"
+	log "github.com/sirupsen/logrus"
 )
 
 const serviceName string = "com.apple.mobile.mobile_image_mounter"
