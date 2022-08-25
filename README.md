@@ -1,5 +1,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Twitter](https://img.shields.io/twitter/url/https/twitter.com/daniel1paulus.svg?style=social&label=Follow%20%40daniel1paulus)](https://twitter.com/daniel1paulus)
+[![NPM](https://nodei.co/npm/go-ios.png?mini=true)](https://npmjs.org/package/go-ios)
+[![NPM](https://img.shields.io/npm/dw/go-ios?style=flat-square)](https://npmjs.org/package/go-ios)
 # Go-iOS
 Welcome 👋
 
@@ -18,7 +20,7 @@ If you miss something your Mac can do but go-iOS can't, just request a feature i
 1. Using golang to compile static, small and fast binaries for all platforms very easily. 
    
    *Build Manual*: Install golang and run `go build`
-2. All output as JSON so you can easily use go-iOS form any other programming language
+2. All output as JSON so you can easily use go-iOS from any other programming language
 3. Everything is a module, you can use go-iOS in golang projects as a module dependency easily
 
 # Features:
