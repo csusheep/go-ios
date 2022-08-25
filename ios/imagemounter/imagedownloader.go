@@ -17,12 +17,12 @@ import (
 )
 
 // const repo = "https://github.com/haikieu/xcode-developer-disk-image-all-platforms/raw/master/DiskImages/iPhoneOS.platform/DeviceSupport/%s.zip"
-const repoOne = "http://support.perfsense.cn/iOS-DeviceSupport//%s.zip"
+const repoOne = "http://support.perfsense.cn/iOS-DeviceSupport/%s.zip"
 const repoTwo = "http://support.perfsense.cn/iPhoneOSDeviceSupport/%s.zip"
 const imagepath = "devimages"
 const developerDiskImageDmg = "DeveloperDiskImage.dmg"
 
-var availableVersions = []string{"10.0", "10.1", "10.2", "10.3", "11.0", "11.1", "11.2", "11.3", "11.4", "12.0", "12.1", "12.2", "12.3", "13.0", "13.1", "13.1.2", "13.2", "13.3", "13.4", "13.5", "13.6", "13.7", "14.0", "14.2", "14.3", "14.4", "14.5", "14.6", "14.7", "15.0", "15.2", "15.4", "8.0", "8.1", "8.2", "8.3", "8.4", "9.0", "9.1", "9.2", "9.3"}
+var availableVersions = []string{"10.0", "10.1", "10.2", "10.3", "11.0", "11.1", "11.2", "11.3", "11.4", "12.0", "12.1", "12.2", "12.3", "13.0", "13.1", "13.1.2", "13.2", "13.3", "13.4", "13.5", "13.6", "13.7", "14.0", "14.2", "14.3", "14.4", "14.5", "14.6", "14.7", "15.0", "15.2", "15.4", "15.5", "15.6", "8.0", "8.1", "8.2", "8.3", "8.4", "9.0", "9.1", "9.2", "9.3"}
 
 const v12_2 = "12.2 (16E5181e)"
 
