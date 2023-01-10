@@ -1,12 +1,13 @@
 package dtx
 
 import (
+	"github.com/danielpaulus/go-ios/ios"
 	"io"
+	"math"
 	"strings"
 	"sync"
 	"time"
 
-	ios "github.com/danielpaulus/go-ios/ios"
 	"github.com/danielpaulus/go-ios/ios/nskeyedarchiver"
 	log "github.com/sirupsen/logrus"
 )
@@ -72,9 +73,13 @@ func (g GlobalDispatcher) Dispatch(msg Message) {
 		}
 		//TODO: use the dispatchFunctions map
 		if "outputReceived:fromProcess:atTime:" == msg.Payload[0] {
-			msg, err := nskeyedarchiver.Unarchive(msg.Auxiliary.GetArguments()[0].([]byte))
+			logmsg, err := nskeyedarchiver.Unarchive(msg.Auxiliary.GetArguments()[0].([]byte))
 			if err == nil {
-				log.Info(msg[0])
+				log.WithFields(log.Fields{
+					"msg":  logmsg[0],
+					"pid":  msg.Auxiliary.GetArguments()[1],
+					"time": msg.Auxiliary.GetArguments()[2],
+				}).Info("outputReceived:fromProcess:atTime:")
 			}
 			return
 		}
@@ -171,7 +176,7 @@ func (dtxConn *Connection) ForChannelRequest(messageDispatcher Dispatcher) *Chan
 // This channel seems to always be there without explicitly requesting it and sometimes it is used.
 func (dtxConn *Connection) AddDefaultChannelReceiver(messageDispatcher Dispatcher) *Channel {
 	channel := &Channel{channelCode: -1, channelName: "c -1/ 4294967295 receiver channel ", messageIdentifier: 1, connection: dtxConn, messageDispatcher: messageDispatcher, responseWaiters: map[int]chan Message{}, defragmenters: map[int]*FragmentDecoder{}, timeout: 5 * time.Second}
-	dtxConn.activeChannels.Store(4294967295, channel)
+	dtxConn.activeChannels.Store(uint32(math.MaxUint32), channel)
 	return channel
 }
 
