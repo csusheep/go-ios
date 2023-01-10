@@ -22,31 +22,31 @@ const repoTwo = "http://support.perfsense.cn/iPhoneOSDeviceSupport/%s.zip"
 const imagepath = "devimages"
 const developerDiskImageDmg = "DeveloperDiskImage.dmg"
 
-var availableVersions = []string{"10.0", "10.1", "10.2", "10.3", "11.0", "11.1", "11.2", "11.3", "11.4", "12.0", "12.1", "12.2", "12.3", "13.0", "13.1", "13.1.2", "13.2", "13.3", "13.4", "13.5", "13.6", "13.7", "14.0", "14.2", "14.3", "14.4", "14.5", "14.6", "14.7", "15.0", "15.2", "15.4", "15.5", "15.6", "8.0", "8.1", "8.2", "8.3", "8.4", "9.0", "9.1", "9.2", "9.3"}
-
-const v12_2 = "12.2 (16E5181e)"
+var availableVersions = []string{"15.7", "16.0", "16.1", "10.0", "10.1", "10.2", "10.3", "11.0", "11.1", "11.2", "11.3", "11.4", "12.0", "12.1", "12.2", "12.3", "13.0", "13.1", "13.1.2", "13.2", "13.3", "13.4", "13.5", "13.6", "13.7", "14.0", "14.2", "14.3", "14.4", "14.5", "14.6", "14.7", "15.0", "15.2", "15.4", "15.5", "15.6", "8.0", "8.1", "8.2", "8.3", "8.4", "9.0", "9.1", "9.2", "9.3"}
 
 func MatchAvailable(version string) string {
 	log.Debugf("device version: %s ", version)
 	requestedVersionParsed := semver.MustParse(version)
 	var bestMatch *semver.Version = nil
 	var bestMatchString string
+
 	for _, availableVersion := range availableVersions {
-		parsedAV := semver.MustParse(availableVersion)
+		parsedAV := semver.MustParse(strings.Split(availableVersion, " (")[0])
+		if parsedAV.Equal(requestedVersionParsed) {
+			return availableVersion
+		}
 		if bestMatch == nil {
 			bestMatch = parsedAV
 			bestMatchString = availableVersion
 			continue
 		}
-		if parsedAV.GreaterThan(bestMatch) && (parsedAV.LessThan(requestedVersionParsed) || parsedAV.Equal(requestedVersionParsed)) {
+		if parsedAV.GreaterThan(bestMatch) && (parsedAV.LessThan(requestedVersionParsed)) {
 			bestMatch = parsedAV
 			bestMatchString = availableVersion
 		}
 	}
 	log.Debugf("device version: %s bestMatch: %s", version, bestMatch)
-	if bestMatchString == "12.2" {
-		return v12_2
-	}
+
 	return bestMatchString
 }
 
@@ -65,14 +65,14 @@ func DownloadImageFor(device ios.DeviceEntry, baseDir string) (string, error) {
 		log.Infof("%s already downloaded", imageDownloaded)
 		return imageDownloaded, nil
 	}
-	repo := repoOne
+	repo := repoTwo
 	requestedVersionParsed := semver.MustParse(version)
-	if requestedVersionParsed.GreaterThan(semver.MustParse("13.5")) {
-		repo = repoTwo
+	if requestedVersionParsed.GreaterThan(semver.MustParse("14.6")) {
+		repo = repoOne
 	}
 	downloadUrl := fmt.Sprintf(repo, version)
 	log.Infof("downloading from: %s", downloadUrl)
-	log.Info("thank you haikieu for making these images available :-)")
+
 	zipFileName := path.Join(baseDir, imagepath, fmt.Sprintf("%s.zip", version))
 	err = downloadFile(zipFileName, downloadUrl)
 	if err != nil {

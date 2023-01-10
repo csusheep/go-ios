@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/danielpaulus/go-ios/ios/afc"
 	"io/ioutil"
 	"path"
 	"path/filepath"
@@ -13,6 +12,8 @@ import (
 	"sort"
 	"strings"
 	"syscall"
+
+	"github.com/danielpaulus/go-ios/ios/afc"
 
 	"github.com/danielpaulus/go-ios/ios/crashreport"
 	"github.com/danielpaulus/go-ios/ios/testmanagerd"
@@ -65,7 +66,7 @@ Usage:
   ios image mount [--path=<imagepath>] [options]
   ios image auto [--basedir=<where_dev_images_are_stored>] [options]
   ios syslog [options]
-  ios screenshot [options] [--output=<outfile>]
+  ios screenshot [options] [--output=<outfile>] [--stream] [--port=<port>]
   ios instruments notifications [options]
   ios crash ls [<pattern>] [options]
   ios crash cp <srcpattern> <target> [options]
@@ -91,10 +92,10 @@ Usage:
   ios pcap [options] [--pid=<processID>] [--process=<processName>]
   ios install --path=<ipaOrAppFolder> [options]
   ios uninstall <bundleID> [options]
-  ios apps [--system] [--all] [options]
-  ios launch <bundleID> [options]
+  ios apps [--system] [--all] [--list] [options]
+  ios launch <bundleID> [--wait] [options]
   ios kill (<bundleID> | --pid=<processID> | --process=<processName>) [options]
-  ios runtest <bundleID> [options]
+  ios runtest <bundleID> [--env=<e>]... [options]
   ios runwda [--bundleid=<bundleid>] [--testrunnerbundleid=<testbundleid>] [--xctestconfig=<xctestconfig>] [--arg=<a>]... [--env=<e>]... [options]
   ios ax [options]
   ios debug [options] [--stop-at-entry] <app_path>
@@ -107,6 +108,7 @@ Usage:
   ios setlocationgpx [options] [--gpxfilepath=<gpxfilepath>]
   ios resetlocation [options]
   ios assistivetouch (enable | disable | toggle | get) [--force] [options]
+  ios diskspace [options]
 
 Options:
   -v --verbose   Enable Debug Logging.
@@ -130,7 +132,8 @@ The commands work as following:
    >                                                                  You can specify a dir where images should be cached.
    >                                                                  The default is the current dir. 
    ios syslog [options]                                               Prints a device's log output
-   ios screenshot [options] [--output=<outfile>]                      Takes a screenshot and writes it to the current dir or to <outfile>
+   ios screenshot [options] [--output=<outfile>] [--stream] [--port=<port>]  Takes a screenshot and writes it to the current dir or to <outfile>  If --stream is supplied it
+   >                                                                  starts an mjpeg server at 0.0.0.0:3333. Use --port to set another port.
    ios instruments notifications [options]                            Listen to application state notifications                                    
    ios crash ls [<pattern>] [options]                                 run "ios crash ls" to get all crashreports in a list, 
    >                                                                  or use a pattern like 'ios crash ls "*ips*"' to filter
@@ -174,10 +177,10 @@ The commands work as following:
    ios readpair                                                       Dump detailed information about the pairrecord for a device.
    ios install --path=<ipaOrAppFolder> [options]                      Specify a .app folder or an installable ipa file that will be installed.  
    ios pcap [options] [--pid=<processID>] [--process=<processName>]   Starts a pcap dump of network traffic, use --pid or --process to filter specific processes.
-   ios apps [--system] [--all]                                        Retrieves a list of installed applications. --system prints out preinstalled system apps. --all prints all apps, including system, user, and hidden apps.
-   ios launch <bundleID>                                              Launch app with the bundleID on the device. Get your bundle ID from the apps command.
+   ios apps [--system] [--all] [--list]                               Retrieves a list of installed applications. --system prints out preinstalled system apps. --all prints all apps, including system, user, and hidden apps. --list only prints bundle ID, bundle name and version number.
+   ios launch <bundleID> [--wait]                                     Launch app with the bundleID on the device. Get your bundle ID from the apps command. --wait keeps the connection open if you want logs.
    ios kill (<bundleID> | --pid=<processID> | --process=<processName>) [options] Kill app with the specified bundleID, process id, or process name on the device.
-   ios runtest <bundleID>                                             Run a XCUITest. 
+   ios runtest <bundleID> [--env=<e>]... [options]                    Run a XCUITest. 
    ios runwda [--bundleid=<bundleid>] [--testrunnerbundleid=<testbundleid>] [--xctestconfig=<xctestconfig>] [--arg=<a>]... [--env=<e>]...[options]  runs WebDriverAgents
    >                                                                  specify runtime args and env vars like --env ENV_1=something --env ENV_2=else  and --arg ARG1 --arg ARG2
    ios ax [options]                                                   Access accessibility inspector features. 
@@ -191,6 +194,7 @@ The commands work as following:
    ios setlocationgpx [options] [--gpxfilepath=<gpxfilepath>]         Updates the location of the device based on the data in a GPX file. Example: setlocationgpx --gpxfilepath=/home/username/location.gpx
    ios resetlocation [options]                                        Resets the location of the device to the actual one
    ios assistivetouch (enable | disable | toggle | get) [--force] [options] Enables, disables, toggles, or returns the state of the "AssistiveTouch" software home-screen button. iOS 11+ only (Use --force to try on older versions).
+   ios diskspace [options]											  Prints disk space info.
 
   `, version)
 	arguments, err := docopt.ParseDoc(usage)
@@ -374,7 +378,17 @@ The commands work as following:
 
 	b, _ = arguments.Bool("screenshot")
 	if b {
+		stream, _ := arguments.Bool("--stream")
+		port, _ := arguments.String("--port")
 		path, _ := arguments.String("--output")
+		if stream {
+			if port == "" {
+				port = "3333"
+			}
+			err := screenshotr.StartStreamingServer(device, port)
+			exitIfError("failed starting mjpeg", err)
+			return
+		}
 		saveScreenshot(device, path)
 		return
 	}
@@ -409,9 +423,10 @@ The commands work as following:
 	b, _ = arguments.Bool("apps")
 
 	if b {
+		list, _ := arguments.Bool("--list")
 		system, _ := arguments.Bool("--system")
 		all, _ := arguments.Bool("--all")
-		printInstalledApps(device, system, all)
+		printInstalledApps(device, system, all, list)
 		return
 	}
 
@@ -511,6 +526,7 @@ The commands work as following:
 
 	b, _ = arguments.Bool("launch")
 	if b {
+		wait, _ := arguments.Bool("--wait")
 		bundleID, _ := arguments.String("<bundleID>")
 		if bundleID == "" {
 			log.Fatal("please provide a bundleID")
@@ -520,8 +536,13 @@ The commands work as following:
 
 		pid, err := pControl.LaunchApp(bundleID)
 		exitIfError("launch app command failed", err)
-
 		log.WithFields(log.Fields{"pid": pid}).Info("Process launched")
+		if wait {
+			c := make(chan os.Signal, 1)
+			signal.Notify(c, syscall.SIGINT, syscall.SIGTERM)
+			<-c
+			log.WithFields(log.Fields{"pid": pid}).Info("stop listening to logs")
+		}
 	}
 
 	b, _ = arguments.Bool("kill")
@@ -553,7 +574,7 @@ The commands work as following:
 				}
 			}
 			if processName == "" {
-				log.Errorf(bundleID, " not installed")
+				log.Errorf("%s not installed", bundleID)
 				os.Exit(1)
 				return
 			}
@@ -590,7 +611,8 @@ The commands work as following:
 	b, _ = arguments.Bool("runtest")
 	if b {
 		bundleID, _ := arguments.String("<bundleID>")
-		err := testmanagerd.RunXCUITest(bundleID, device)
+		env := arguments["--env"].([]string)
+		err := testmanagerd.RunXCUITest(bundleID, device, env)
 		if err != nil {
 			log.WithFields(log.Fields{"error": err}).Info("Failed running Xcuitest")
 		}
@@ -681,6 +703,22 @@ The commands work as following:
 		afcService.Close()
 		return
 	}
+
+	b, _ = arguments.Bool("diskspace")
+	if b {
+		afcService, err := afc.New(device)
+		exitIfError("connect afc service failed", err)
+		info, err := afcService.GetSpaceInfo()
+		if err != nil {
+			exitIfError("get device info push failed", err)
+		}
+		fmt.Printf("      Model: %s\n", info.Model)
+		fmt.Printf("  BlockSize: %d\n", info.BlockSize/8)
+		fmt.Printf("  FreeSpace: %s\n", ios.ByteCountDecimal(int64(info.FreeBytes)))
+		fmt.Printf("  UsedSpace: %s\n", ios.ByteCountDecimal(int64(info.TotalBytes-info.FreeBytes)))
+		fmt.Printf(" TotalSpace: %s\n", ios.ByteCountDecimal(int64(info.TotalBytes)))
+		return
+	}
 }
 
 func mobileGestaltCommand(device ios.DeviceEntry, arguments docopt.Opts) bool {
@@ -723,7 +761,7 @@ func imageCommand1(device ios.DeviceEntry, arguments docopt.Opts) bool {
 		if auto {
 			basedir, _ := arguments.String("--basedir")
 			if basedir == "" {
-				basedir = "."
+				basedir = "./devimages"
 			}
 			err := imagemounter.FixDevImage(device, basedir)
 			if err != nil {
@@ -1095,7 +1133,8 @@ func handleProfileList(device ios.DeviceEntry) {
 }
 
 func startForwarding(device ios.DeviceEntry, hostPort int, targetPort int) {
-	forward.Forward(device, uint16(hostPort), uint16(targetPort))
+	err := forward.Forward(device, uint16(hostPort), uint16(targetPort))
+	exitIfError("failed to forward port", err)
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt)
 	<-c
@@ -1124,7 +1163,7 @@ func printDeviceDate(device ios.DeviceEntry) {
 	}
 
 }
-func printInstalledApps(device ios.DeviceEntry, system bool, all bool) {
+func printInstalledApps(device ios.DeviceEntry, system bool, all bool, list bool) {
 	svc, _ := installationproxy.New(device)
 	var err error
 	var response []installationproxy.AppInfo
@@ -1141,6 +1180,12 @@ func printInstalledApps(device ios.DeviceEntry, system bool, all bool) {
 	}
 	exitIfError("browsing "+appType+" apps failed", err)
 
+	if list {
+		for _, v := range response {
+			fmt.Printf("%s %s %s\n", v.CFBundleIdentifier, v.CFBundleName, v.CFBundleShortVersionString)
+		}
+		return
+	}
 	if JSONdisabled {
 		log.Info(response)
 	} else {
@@ -1169,9 +1214,9 @@ func saveScreenshot(device ios.DeviceEntry, outputPath string) {
 	exitIfError("screenshotr failed", err)
 
 	if outputPath == "" {
-		time := time.Now().Format("20060102150405")
-		path, _ := filepath.Abs("./screenshot" + time + ".png")
-		outputPath = path
+		timestamp := time.Now().Format("20060102150405")
+		outputPath, err = filepath.Abs("./screenshot" + timestamp + ".png")
+		exitIfError("getting filepath failed", err)
 	}
 	err = ioutil.WriteFile(outputPath, imageBytes, 0777)
 	exitIfError("write file failed", err)
